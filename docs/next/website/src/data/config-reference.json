@@ -1452,7 +1452,7 @@
           "key": "worktrees.directory",
           "type": "string",
           "default": "\"~/.herdr/worktrees\"",
-          "description": "Root directory under which Herdr creates <repo>/<branch-slug> checkouts."
+          "description": "Directory for linked worktree checkouts. Can be an absolute path (or ~/...), where checkouts are placed under <directory>/<repo>/<branch-slug>, or a path relative to the Git repository root (e.g. \"./worktrees\"), where checkouts are placed under <repo-root>/<directory>/<branch-slug>."
         }
       ]
     },

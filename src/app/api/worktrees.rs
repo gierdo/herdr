@@ -845,6 +845,57 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn api_worktree_create_supports_repo_relative_directory() {
+        let repo = create_committed_repo("api-worktree-relative-repo");
+        let event_hub = crate::api::EventHub::default();
+        let mut app = test_app_with_event_hub(event_hub.clone());
+        let mut parent = Workspace::test_new("main");
+        parent.identity_cwd = repo.clone();
+        app.state.workspaces = vec![parent];
+        app.state.ensure_test_terminals();
+        app.state.active = Some(0);
+        app.state.selected = 0;
+        app.state.worktree_directory = PathBuf::from("./worktrees");
+        let workspace_id = app.state.workspaces[0].id.clone();
+
+        let response = run_deferred_api_request(
+            &mut app,
+            Request {
+                id: "req".into(),
+                method: crate::api::schema::Method::WorktreeCreate(WorktreeCreateParams {
+                    workspace_id: Some(workspace_id),
+                    branch: Some("worktree/relative-create".into()),
+                    ..WorktreeCreateParams::default()
+                }),
+            },
+        );
+
+        let success: SuccessResponse = serde_json::from_str(&response).unwrap();
+        let ResponseResult::WorktreeCreated { worktree, .. } = success.result else {
+            panic!("expected worktree_created response");
+        };
+        assert_eq!(worktree.branch.as_deref(), Some("worktree/relative-create"));
+        let expected_path = repo.join("worktrees").join("worktree-relative-create");
+        assert_eq!(
+            crate::worktree::canonical_or_original(Path::new(&worktree.path)),
+            crate::worktree::canonical_or_original(&expected_path)
+        );
+        assert!(expected_path.join("README.md").exists());
+
+        for (_, runtime) in app.terminal_runtimes.drain() {
+            runtime.shutdown();
+        }
+        let remove = crate::worktree::build_worktree_remove_command(
+            &repo,
+            Path::new(&worktree.path),
+            false,
+            false,
+        );
+        crate::worktree::run_worktree_command(&remove).unwrap();
+        let _ = std::fs::remove_dir_all(repo);
+    }
+
+    #[tokio::test]
     async fn deferred_api_worktree_create_preserves_event_and_plugin_context() {
         let repo = create_committed_repo("api-worktree-create-deferred-repo");
         let worktree_root = unique_temp_path("api-worktree-create-deferred-root");

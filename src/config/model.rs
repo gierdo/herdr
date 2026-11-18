@@ -868,7 +868,9 @@ pub struct IndexedKeysConfig {
 #[derive(Debug, Deserialize)]
 #[serde(default)]
 pub struct WorktreesConfig {
-    /// Root directory under which Herdr creates <repo>/<branch-slug> checkouts.
+    /// Directory under which Herdr creates linked worktree checkouts.
+    /// Can be an absolute path (or ~/...), where checkouts are placed under <directory>/<repo>/<branch-slug>,
+    /// or a path relative to the Git repository root (e.g. "./worktrees"), where checkouts are placed under <repo-root>/<directory>/<branch-slug>.
     pub directory: String,
 }
 
@@ -1578,6 +1580,13 @@ directory = "~/Projects/herdr-worktrees"
 "#;
         let config: Config = toml::from_str(toml).unwrap();
         assert_eq!(config.worktrees.directory, "~/Projects/herdr-worktrees");
+
+        let toml_relative = r#"
+[worktrees]
+directory = "./worktrees"
+"#;
+        let config_relative: Config = toml::from_str(toml_relative).unwrap();
+        assert_eq!(config_relative.worktrees.directory, "./worktrees");
     }
 
     #[test]

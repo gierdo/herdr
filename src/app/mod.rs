@@ -461,8 +461,7 @@ impl App {
 
         let agent_panel_sort = agent_panel_sort_from_config(config.ui.agent_panel_sort);
 
-        let worktree_directory =
-            crate::worktree::expand_tilde_absolute_path(&config.worktrees.directory);
+        let worktree_directory = crate::worktree::expand_tilde_path(&config.worktrees.directory);
 
         info!(
             pane_scrollback_limit_bytes = config.advanced.scrollback_limit_bytes,
@@ -1016,7 +1015,7 @@ impl App {
 
         if !invalid_section("worktrees") {
             self.state.worktree_directory =
-                crate::worktree::expand_tilde_absolute_path(&config.worktrees.directory);
+                crate::worktree::expand_tilde_path(&config.worktrees.directory);
         }
 
         if !invalid_section("theme") {

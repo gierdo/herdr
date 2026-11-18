@@ -136,17 +136,6 @@ fn usable_home_component(value: Option<OsString>) -> Option<OsString> {
     Some(value)
 }
 
-pub(crate) fn expand_tilde_absolute_path(path: &str) -> PathBuf {
-    let path = expand_tilde_path(path);
-    if path.is_absolute() {
-        path
-    } else {
-        std::env::current_dir()
-            .map(|cwd| cwd.join(&path))
-            .unwrap_or(path)
-    }
-}
-
 pub(crate) fn canonical_or_original(path: &Path) -> PathBuf {
     std::fs::canonicalize(path).unwrap_or_else(|_| path.to_path_buf())
 }
@@ -170,6 +159,51 @@ fn repository_git_args(repo_root: &Path, trust_repository: bool) -> Vec<String> 
 
 pub(crate) fn default_checkout_path(root: &Path, repo_name: &str, branch: &str) -> PathBuf {
     root.join(repo_name).join(branch_to_path_slug(branch))
+}
+
+pub(crate) fn is_worktree_path_absolute(path: &str) -> bool {
+    let bytes = path.as_bytes();
+    path.starts_with('/')
+        || path.starts_with('\\')
+        || path.starts_with('~')
+        || (bytes.len() >= 3
+            && bytes[0].is_ascii_alphabetic()
+            && bytes[1] == b':'
+            && matches!(bytes[2], b'/' | b'\\'))
+}
+
+pub(crate) fn is_worktree_path_relative(path: &Path) -> bool {
+    !is_worktree_path_absolute(&path.to_string_lossy())
+}
+
+pub(crate) fn normalize_relative_worktree_path(path: &Path) -> PathBuf {
+    let normalized = if let Ok(stripped) = path.strip_prefix("./") {
+        stripped
+    } else if let Ok(stripped) = path.strip_prefix(".\\") {
+        stripped
+    } else {
+        path
+    };
+    if normalized == Path::new(".") {
+        PathBuf::new()
+    } else {
+        normalized.to_path_buf()
+    }
+}
+
+pub(crate) fn resolve_checkout_path(
+    configured_root: &Path,
+    repo_root: &Path,
+    repo_name: &str,
+    branch: &str,
+) -> PathBuf {
+    let slug = branch_to_path_slug(branch);
+    if is_worktree_path_relative(configured_root) {
+        let relative_root = normalize_relative_worktree_path(configured_root);
+        repo_root.join(relative_root).join(slug)
+    } else {
+        default_checkout_path(configured_root, repo_name, branch)
+    }
 }
 
 pub(crate) fn build_worktree_remove_command(
@@ -789,6 +823,82 @@ prunable stale
                 "worktree/brave-river",
             ),
             PathBuf::from("/home/me/.herdr/worktrees/herdr/worktree-brave-river")
+        );
+    }
+
+    #[test]
+    fn resolve_checkout_path_handles_absolute_and_repo_relative_roots() {
+        assert_eq!(
+            resolve_checkout_path(
+                Path::new("/home/me/.herdr/worktrees"),
+                Path::new("/home/me/repos/herdr"),
+                "herdr",
+                "feat/topic",
+            ),
+            PathBuf::from("/home/me/.herdr/worktrees/herdr/feat-topic")
+        );
+        assert_eq!(
+            resolve_checkout_path(
+                Path::new("./worktrees"),
+                Path::new("/home/me/repos/herdr"),
+                "herdr",
+                "feat/topic",
+            ),
+            PathBuf::from("/home/me/repos/herdr/worktrees/feat-topic")
+        );
+        assert_eq!(
+            resolve_checkout_path(
+                Path::new(".worktrees"),
+                Path::new("/home/me/repos/herdr"),
+                "herdr",
+                "feat/topic",
+            ),
+            PathBuf::from("/home/me/repos/herdr/.worktrees/feat-topic")
+        );
+        assert_eq!(
+            resolve_checkout_path(
+                Path::new("worktrees"),
+                Path::new("/home/me/repos/herdr"),
+                "herdr",
+                "feat/topic",
+            ),
+            PathBuf::from("/home/me/repos/herdr/worktrees/feat-topic")
+        );
+        assert_eq!(
+            resolve_checkout_path(
+                Path::new("../worktrees"),
+                Path::new("/home/me/repos/herdr"),
+                "herdr",
+                "feat/topic",
+            ),
+            PathBuf::from("/home/me/repos/herdr/../worktrees/feat-topic")
+        );
+        assert_eq!(
+            resolve_checkout_path(
+                Path::new("."),
+                Path::new("/home/me/repos/herdr"),
+                "herdr",
+                "feat/topic",
+            ),
+            PathBuf::from("/home/me/repos/herdr/feat-topic")
+        );
+        assert_eq!(
+            resolve_checkout_path(
+                Path::new("./"),
+                Path::new("/home/me/repos/herdr"),
+                "herdr",
+                "feat/topic",
+            ),
+            PathBuf::from("/home/me/repos/herdr/feat-topic")
+        );
+        assert_eq!(
+            resolve_checkout_path(
+                Path::new("/worktrees"),
+                Path::new("/home/me/repos/herdr"),
+                "herdr",
+                "feat/topic",
+            ),
+            PathBuf::from("/worktrees/herdr/feat-topic")
         );
     }
 

@@ -102,7 +102,7 @@ Set the root directory Herdr uses for Git worktree checkouts created from the si
 directory = "~/.herdr/worktrees"
 ```
 
-Herdr creates checkouts under `<directory>/<repo>/<branch-slug>`. For sibling-style checkouts, set this to a directory such as `~/Projects/herdr-worktrees`. Relative values are resolved to an absolute path when the app applies the config.
+Herdr creates checkouts under `<directory>/<repo>/<branch-slug>` when configured with an absolute path or home directory (e.g. `~/.herdr/worktrees`). When configured with a relative path (such as `./worktrees`), Herdr resolves the path relative to the root of the current Git repository and creates checkouts under `<repo-root>/<directory>/<branch-slug>`. For sibling-style checkouts, set this to a directory such as `~/Projects/herdr-worktrees`.
 
 Worktree actions are available from Git workspace rows. `New worktree` creates a checkout. It checks out an existing local branch when the entered branch exists; otherwise, it creates the branch. It then opens the checkout as a new Herdr workspace and groups it under the source workspace. `Open worktree...` lists existing Git worktree checkouts for that repo. Choosing an already-open checkout focuses it, while choosing a closed checkout opens it in the same group.
 
